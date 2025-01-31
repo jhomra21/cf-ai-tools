@@ -257,7 +257,7 @@ export default function AiChat() {
   };
 
   return (
-    <div class="container mx-auto p-4 sm:p-6 max-w-7xl flex flex-col h-[calc(100vh-72px-1px)]">
+    <div class="container mx-auto p-4 sm:p-6 max-w-7xl flex flex-col h-[calc(100vh-72px-1px)] pb-[env(safe-area-inset-bottom,0px)]">
       {/* Header Section with Model Info */}
       <Show when={showHeader()}>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
@@ -358,8 +358,8 @@ export default function AiChat() {
           </div>
         </div>
 
-        {/* Input Section */}
-        <div class="mt-4 max-w-3xl mx-auto w-full px-2 sm:px-4">
+        {/* Input Section - Updated with safe area handling */}
+        <div class="sticky bottom-0 mt-4 max-w-3xl mx-auto w-full px-2 sm:px-4 pb-[env(safe-area-inset-bottom,16px)]">
           <form onSubmit={handleSubmit} class="relative">
             <textarea
               ref={inputRef}
@@ -373,9 +373,9 @@ export default function AiChat() {
               }}
               placeholder="Message DeepSeek..."
               class="w-full bg-[#1E1E1E] border border-[#2D2D2D] rounded-none p-3 sm:p-4 pr-20 sm:pr-24
-                     font-mono text-sm text-white placeholder:text-neutral-600
+                     font-mono text-base text-white placeholder:text-neutral-600
                      focus:outline-none focus:border-[#0066FF] focus:ring-0
-                     resize-none h-[48px] sm:h-[56px]"
+                     resize-none h-[48px] sm:h-[56px] overflow-hidden"
               disabled={isLoading()}
             />
             <button
@@ -389,7 +389,7 @@ export default function AiChat() {
               SEND
             </button>
           </form>
-          <div class="mt-2 font-mono text-xs text-neutral-400">
+          <div class="mt-2 font-mono text-xs text-neutral-400 mb-2">
             ↵ to send • shift + ↵ for new line
           </div>
         </div>
