@@ -18,8 +18,13 @@ export default function AiChat() {
   // Improved scroll to bottom function
   const scrollToBottom = (smooth = true) => {
     if (messagesContainerRef) {
-      const maxScroll = messagesContainerRef.scrollHeight - messagesContainerRef.clientHeight;
-      messagesContainerRef.scrollTop = maxScroll;
+      requestAnimationFrame(() => {
+        const maxScroll = messagesContainerRef.scrollHeight - messagesContainerRef.clientHeight;
+        messagesContainerRef.scrollTo({
+          top: maxScroll,
+          behavior: smooth ? 'smooth' : 'instant'
+        });
+      });
     }
   };
 
@@ -132,6 +137,43 @@ export default function AiChat() {
     }
   };
 
+  // Function to render message content with different styling for thinking and response
+  const renderMessageContent = (content: string) => {
+    const parts = content.split('</think>');
+    if (parts.length === 1) {
+      // No thinking tag, render as normal response
+      return (
+        <pre class="whitespace-pre-wrap text-sm leading-relaxed text-white font-mono">
+          {content}
+        </pre>
+      );
+    }
+
+    return (
+      <div class="space-y-4">
+        {/* Thinking part */}
+        <pre class="whitespace-pre-wrap text-sm leading-relaxed font-mono text-neutral-400 bg-[#1A1A1A] p-3 border-l border-neutral-800">
+          {parts[0]}
+        </pre>
+        {/* Response part */}
+        <pre class="whitespace-pre-wrap text-sm leading-relaxed text-white font-mono">
+          {parts[1]}
+        </pre>
+      </div>
+    );
+  };
+
+  // Enhanced scroll effect for streaming
+  createEffect(() => {
+    const streaming = currentAssistantMessage();
+    if (streaming) {
+      // Use RAF to ensure DOM is updated
+      requestAnimationFrame(() => {
+        scrollToBottom(true);
+      });
+    }
+  });
+
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
     setShowHeader(false); // Hide header on first message
@@ -147,6 +189,9 @@ export default function AiChat() {
     chatStore.addMessage({ role: 'user', content: userMessage });
     setCurrentInput('');
     setIsLoading(true);
+    
+    // Scroll to bottom when loading starts
+    scrollToBottom(true);
 
     try {
       const response = await fetch(import.meta.env.DEV ? 'http://127.0.0.1:8787' : `${import.meta.env.VITE_API_URL}`, {
@@ -165,6 +210,7 @@ export default function AiChat() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantMessage = '';
+      let isFirstChunk = true;
 
       if (reader) {
         while (true) {
@@ -179,12 +225,20 @@ export default function AiChat() {
           if (text) {
             assistantMessage += text;
             setCurrentAssistantMessage(assistantMessage);
+            
+            // Ensure scroll on first chunk
+            if (isFirstChunk) {
+              scrollToBottom(true);
+              isFirstChunk = false;
+            }
           }
         }
 
         // Add completed assistant message to chat
         if (assistantMessage.trim()) {
           chatStore.addMessage({ role: 'assistant', content: assistantMessage });
+          // Final scroll after message is complete
+          scrollToBottom(true);
         }
         setCurrentAssistantMessage('');
       }
@@ -195,6 +249,8 @@ export default function AiChat() {
         role: 'assistant', 
         content: '❌ Sorry, I encountered an error. Please try again.' 
       });
+      // Scroll to show error message
+      scrollToBottom(true);
     } finally {
       setIsLoading(false);
     }
@@ -204,21 +260,11 @@ export default function AiChat() {
     <div class="container mx-auto p-4 sm:p-6 max-w-7xl flex flex-col h-[calc(100vh-72px-1px)]">
       {/* Header Section with Model Info */}
       <Show when={showHeader()}>
-        <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
-          <div class="border border-[#2D2D2D] bg-[#1E1E1E] p-3 sm:p-4 col-span-2 lg:col-span-1">
-            <div class="flex items-center space-x-3">
-              <h1 class="font-mono text-lg sm:text-xl font-bold tracking-tighter text-white">AI CHAT</h1>
-              <div class="h-4 w-px bg-[#2D2D2D]"></div>
-              <div class="flex items-center space-x-2">
-                <div class="w-2 h-2 bg-[#28C840] rounded-full animate-pulse"></div>
-                <span class="font-mono text-xs text-neutral-400">SYSTEM ACTIVE</span>
-              </div>
-            </div>
-          </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
 
           <div class="border border-[#2D2D2D] bg-[#1E1E1E] p-3 sm:p-4">
             <div class="font-mono text-xs text-neutral-400">MODEL</div>
-            <div class="font-mono text-sm text-white truncate">Llama 3.1 8B Instruct</div>
+            <div class="font-mono text-sm text-white text-wrap">DeepSeek R1 Distill Qwen 32B</div>
           </div>
 
           <div class="border border-[#2D2D2D] bg-[#1E1E1E] p-3 sm:p-4">
@@ -273,9 +319,7 @@ export default function AiChat() {
                           })}
                         </span>
                       </div>
-                      <pre class="whitespace-pre-wrap text-sm leading-relaxed text-white font-mono">
-                        {message.content}
-                      </pre>
+                      {renderMessageContent(message.content)}
                     </div>
                   </div>
                 )}
@@ -290,9 +334,7 @@ export default function AiChat() {
                       <span class="text-xs text-neutral-500">•</span>
                       <span class="font-mono text-xs text-neutral-500">Streaming</span>
                     </div>
-                    <pre class="whitespace-pre-wrap text-sm leading-relaxed text-white font-mono">
-                      {currentAssistantMessage()}
-                    </pre>
+                    {renderMessageContent(currentAssistantMessage())}
                   </div>
                 </div>
               </Show>
@@ -329,7 +371,7 @@ export default function AiChat() {
                   handleSubmit(e);
                 }
               }}
-              placeholder="Message llama..."
+              placeholder="Message DeepSeek..."
               class="w-full bg-[#1E1E1E] border border-[#2D2D2D] rounded-none p-3 sm:p-4 pr-20 sm:pr-24
                      font-mono text-sm text-white placeholder:text-neutral-600
                      focus:outline-none focus:border-[#0066FF] focus:ring-0

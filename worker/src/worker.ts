@@ -111,8 +111,8 @@ app.post('/', async (c) => {
     ];
 
     // Get streaming AI response
-    const aiResponse = await c.env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
-      prompt: body.message,
+    const aiResponse = await c.env.AI.run("@cf/deepseek-ai/deepseek-r1-distill-qwen-32b" as any, {
+      messages,
       stream: true
     });
 

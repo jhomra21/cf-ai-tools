@@ -26,7 +26,7 @@ const Home: Component = () => {
               <div class="h-4 w-px bg-[#2D2D2D]"></div>
               <div class="flex items-center space-x-2">
                 <div class="w-2 h-2 bg-[#28C840] rounded-full"></div>
-                <span class="font-mono text-xs text-neutral-400">LLAMA 3.1</span>
+                <span class="font-mono text-xs text-neutral-400">DeepSeek R1 Qwen 32B</span>
               </div>
             </div>
             <p class="font-mono text-sm text-neutral-400 mb-6">
