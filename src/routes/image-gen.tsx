@@ -266,7 +266,7 @@ export default function ImageGen() {
                   onInput={handlePromptChange}
                   placeholder="Describe the image you want to generate..."
                   class="w-full h-32 bg-[#1E1E1E] border border-[#2D2D2D] text-white px-4 py-3 
-                         font-mono text-sm placeholder:text-neutral-600 resize-none
+                         font-mono text-base placeholder:text-neutral-600 resize-none
                          focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] focus:outline-none
                          disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isLoading() && !realtimeMode()}
