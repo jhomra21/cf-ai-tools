@@ -1,0 +1,172 @@
+/**
+ * Custom Prism.js theme - Industrial Dark
+ */
+
+code[class*="language-"],
+pre[class*="language-"] {
+  color: #ffffff;
+  background: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875rem;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  line-height: 1.5;
+  tab-size: 2;
+  hyphens: none;
+}
+
+pre[class*="language-"] {
+  padding: 1rem;
+  margin: 0.5rem 0;
+  overflow: auto;
+  background: #1A1A1A;
+  border: 1px solid #2D2D2D;
+}
+
+:not(pre) > code[class*="language-"] {
+  padding: 0.2em 0.4em;
+  margin: 0 0.1em;
+  border-radius: 0;
+  white-space: normal;
+  background: #1A1A1A;
+  border: 1px solid #2D2D2D;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #6B7280;
+  font-style: italic;
+}
+
+.token.namespace {
+  opacity: 0.7;
+}
+
+.token.string,
+.token.attr-value {
+  color: #28C840;
+}
+
+.token.punctuation,
+.token.operator {
+  color: #9CA3AF;
+}
+
+.token.entity,
+.token.url,
+.token.symbol,
+.token.number,
+.token.boolean,
+.token.variable,
+.token.constant,
+.token.property,
+.token.regex,
+.token.inserted {
+  color: #FFBD2E;
+}
+
+.token.atrule,
+.token.keyword,
+.token.attr-name {
+  color: #0066FF;
+}
+
+.token.function,
+.token.deleted {
+  color: #FF5F57;
+}
+
+.token.function-name {
+  color: #0066FF;
+}
+
+.token.tag,
+.token.selector {
+  color: #FF5F57;
+}
+
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+/* Line highlighting */
+.line-highlight {
+  background: rgba(45, 45, 45, 0.3);
+  border-left: 3px solid #0066FF;
+}
+
+/* Line numbers */
+.line-numbers .line-numbers-rows {
+  border-right: 1px solid #2D2D2D;
+}
+
+.line-numbers-rows > span:before {
+  color: #6B7280;
+}
+
+/* Match braces */
+.token.punctuation.brace-hover,
+.token.punctuation.brace-selected {
+  outline: solid 1px #2D2D2D;
+}
+
+/* Selection */
+code[class*="language-"]::-moz-selection,
+code[class*="language-"] ::-moz-selection,
+pre[class*="language-"]::-moz-selection,
+pre[class*="language-"] ::-moz-selection {
+  background: #2D2D2D;
+}
+
+code[class*="language-"]::selection,
+code[class*="language-"] ::selection,
+pre[class*="language-"]::selection,
+pre[class*="language-"] ::selection {
+  background: #2D2D2D;
+}
+
+/* Inline code */
+:not(pre) > code {
+  padding: 0.2em 0.4em;
+  margin: 0 0.1em;
+  background: #1A1A1A;
+  border: 1px solid #2D2D2D;
+  border-radius: 0;
+  white-space: normal;
+  font-size: 0.875rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Copy button */
+.code-copy-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: #9CA3AF;
+  background-color: #2D2D2D;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.code-block:hover .code-copy-button {
+  opacity: 1;
+}
+
+.code-copy-button:hover {
+  background-color: #3D3D3D;
+  color: #ffffff;
+} 

@@ -3,3 +3,4 @@ dist
 .env
 wrangler.toml
 .cursorrules
+plan.md

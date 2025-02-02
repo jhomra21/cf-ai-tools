@@ -1,6 +1,7 @@
-import { createSignal, createEffect, For, Show, onMount } from 'solid-js';
+import { createSignal, createEffect, For, Show, onMount, onCleanup, batch } from 'solid-js';
 import { chatStore, type ChatMessage } from '../stores/chatStore';
 import { useLocation } from '@solidjs/router';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 
 export default function AiChat() {
   const [currentInput, setCurrentInput] = createSignal('');
@@ -10,60 +11,116 @@ export default function AiChat() {
   const [shouldFocus, setShouldFocus] = createSignal(true);
   const [showHeader, setShowHeader] = createSignal(true);
   const [isMounted, setIsMounted] = createSignal(false);
+  const [shouldAutoScroll, setShouldAutoScroll] = createSignal(true);
+  const [isUserScrolling, setIsUserScrolling] = createSignal(false);
   const location = useLocation();
   let inputRef: HTMLTextAreaElement | undefined;
   let messagesContainerRef: HTMLDivElement | undefined;
   let partialResponse = '';
+  let scrollTimeout: number | undefined;
+  let lastUserInteraction = 0;
+  let userHasScrolledUp = false;
 
-  // Improved scroll to bottom function
+  // Scroll to bottom function
   const scrollToBottom = (smooth = true) => {
-    if (messagesContainerRef) {
-      requestAnimationFrame(() => {
+    if (!messagesContainerRef || !shouldAutoScroll() || userHasScrolledUp) return;
+
+    requestAnimationFrame(() => {
+      const container = messagesContainerRef;
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      
+      container.scrollTo({
+        top: maxScroll,
+        behavior: smooth ? 'smooth' : 'instant'
+      });
+    });
+  };
+
+  // Handle manual scrolling
+  const handleScroll = (e: Event) => {
+    if (!messagesContainerRef || !e.target) return;
+    
+    // Clear any existing scroll timeout
+    if (scrollTimeout) {
+      window.clearTimeout(scrollTimeout);
+    }
+
+    // Update last interaction time
+    lastUserInteraction = Date.now();
+    setIsUserScrolling(true);
+
+    const { scrollHeight, scrollTop, clientHeight } = messagesContainerRef;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    
+    // Update scroll state immediately
+    if (distanceFromBottom > 100) {
+      userHasScrolledUp = true;
+      setShouldAutoScroll(false);
+    } else {
+      userHasScrolledUp = false;
+      setShouldAutoScroll(true);
+    }
+
+    // Set a timeout to end the scrolling state
+    scrollTimeout = window.setTimeout(() => {
+      setIsUserScrolling(false);
+    }, 150);
+  };
+
+  // Handle viewport changes
+  const handleViewportChange = () => {
+    if (!shouldAutoScroll() || userHasScrolledUp || isUserScrolling()) return;
+    
+    requestAnimationFrame(() => {
+      if (messagesContainerRef) {
         const maxScroll = messagesContainerRef.scrollHeight - messagesContainerRef.clientHeight;
         messagesContainerRef.scrollTo({
           top: maxScroll,
-          behavior: smooth ? 'smooth' : 'instant'
+          behavior: 'instant'
         });
-      });
-    }
+      }
+    });
   };
 
-  // Initial mount and route change handling
-  onMount(() => {
-    setIsMounted(true);
-    if (chatStore.messages.length > 0) {
-      scrollToBottom(false);
-      focusInput();
-    }
-  });
-
-  // Route change effect
-  createEffect(() => {
-    const currentPath = location.pathname;
-    const messages = chatStore.messages;
-    if (currentPath === '/ai-chat' && messages.length > 0) {
-      // Force immediate scroll without animation
-      scrollToBottom(false);
-    }
-  });
-
-  // Auto-scroll effect for new messages
+  // Effect for new messages and streaming
   createEffect(() => {
     const messages = chatStore.messages;
     const streaming = currentAssistantMessage();
-    if (messages.length > 0 || streaming) {
-      scrollToBottom(true);
+
+    if (!isMounted() || isUserScrolling() || userHasScrolledUp) return;
+
+    // Only auto-scroll for new messages or streaming if we're supposed to
+    if (shouldAutoScroll() && (messages.length > 0 || streaming)) {
+      scrollToBottom(!streaming);
     }
   });
 
-  // Focus handling
+  // Mount handler
   onMount(() => {
-    focusInput();
+    setIsMounted(true);
+    
     if (chatStore.messages.length > 0) {
       scrollToBottom(false);
     }
+    focusInput();
+
+    // Add event listeners
+    messagesContainerRef?.addEventListener('scroll', handleScroll, { passive: true });
+    window.visualViewport?.addEventListener('resize', handleViewportChange);
+    window.visualViewport?.addEventListener('scroll', handleViewportChange);
+
+    // Cleanup
+    onCleanup(() => {
+      messagesContainerRef?.removeEventListener('scroll', handleScroll);
+      window.visualViewport?.removeEventListener('resize', handleViewportChange);
+      window.visualViewport?.removeEventListener('scroll', handleViewportChange);
+      if (scrollTimeout) {
+        window.clearTimeout(scrollTimeout);
+      }
+    });
   });
 
+  // Focus handling
   const focusInput = () => {
     if (!shouldFocus()) return;
     setTimeout(() => {
@@ -142,11 +199,7 @@ export default function AiChat() {
     const parts = content.split('</think>');
     if (parts.length === 1) {
       // No thinking tag, render as normal response
-      return (
-        <pre class="whitespace-pre-wrap text-sm leading-relaxed text-white font-mono">
-          {content}
-        </pre>
-      );
+      return <MarkdownRenderer content={content} />;
     }
 
     return (
@@ -156,26 +209,15 @@ export default function AiChat() {
           {parts[0]}
         </pre>
         {/* Response part */}
-        <pre class="whitespace-pre-wrap text-sm leading-relaxed text-white font-mono">
-          {parts[1]}
-        </pre>
+        <MarkdownRenderer content={parts[1]} />
       </div>
     );
   };
 
-  // Enhanced scroll effect for streaming
-  createEffect(() => {
-    const streaming = currentAssistantMessage();
-    if (streaming) {
-      // Use RAF to ensure DOM is updated
-      requestAnimationFrame(() => {
-        scrollToBottom(true);
-      });
-    }
-  });
-
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
+    userHasScrolledUp = false;
+    setShouldAutoScroll(true);
     setShowHeader(false); // Hide header on first message
     const userMessage = currentInput();
     if (!userMessage.trim()) return;
