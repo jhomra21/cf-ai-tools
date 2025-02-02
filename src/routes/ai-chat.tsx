@@ -35,22 +35,20 @@ export default function AiChat() {
   };
 
   // Scroll to bottom function
-  const scrollToBottom = (smooth = true) => {
-    if (!messagesContainerRef || isUpdating) return;
+  const scrollToBottom = (smooth = true, force = false) => {
+    if (!messagesContainerRef || (isUpdating && !force)) return;
     
     // Small delay to ensure DOM has updated
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        const container = messagesContainerRef;
-        if (!container) return;
-        
-        const maxScroll = container.scrollHeight - container.clientHeight;
-        container.scrollTo({
-          top: maxScroll,
-          behavior: smooth ? 'smooth' : 'instant'
-        });
+    requestAnimationFrame(() => {
+      const container = messagesContainerRef;
+      if (!container) return;
+      
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      container.scrollTo({
+        top: maxScroll,
+        behavior: smooth ? 'smooth' : 'instant'
       });
-    }, 50);
+    });
   };
 
   // Update scroll state with debounce
@@ -303,7 +301,6 @@ export default function AiChat() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantMessage = '';
-      let isFirstChunk = true;
 
       if (reader) {
         while (true) {
@@ -317,10 +314,9 @@ export default function AiChat() {
             assistantMessage += text;
             setCurrentAssistantMessage(assistantMessage);
             
-            // Scroll on first chunk if near bottom
-            if (isFirstChunk && shouldAutoScroll()) {
-              scrollToBottom(true);
-              isFirstChunk = false;
+            // Scroll if near bottom for each chunk
+            if (shouldAutoScroll()) {
+              scrollToBottom(true, true); // Force scroll during streaming
             }
           }
         }

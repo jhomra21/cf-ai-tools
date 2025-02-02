@@ -30,11 +30,15 @@
   @apply mb-4 leading-relaxed text-sm;
 }
 
-.markdown-content strong {
+.markdown-content h3 {
   @apply font-bold text-lg text-white underline;
 }
+
+.markdown-content strong {
+  @apply  text-lg text-white underline;
+}
 .markdown-content li strong {
-  @apply italic text-lg text-white no-underline list-none;
+  @apply italic font-bold! text-base text-white no-underline list-none;
 }
 
 .markdown-content em {
