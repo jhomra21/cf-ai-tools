@@ -323,6 +323,7 @@ export default function AiChat() {
 
         if (assistantMessage.trim()) {
           chatStore.addMessage({ role: 'assistant', content: assistantMessage });
+          setCurrentAssistantMessage(''); // Clear streaming message after adding to store
           // Scroll after adding assistant message if near bottom
           if (shouldAutoScroll()) {
             scrollToBottom(true);
@@ -398,7 +399,7 @@ export default function AiChat() {
                     } p-4`}>
                       <div class="flex items-center space-x-3 mb-2">
                         <span class="font-mono text-xs uppercase text-neutral-400">
-                          {message.role === 'user' ? 'User Input' : 'System Response'}
+                          {message.role === 'user' ? 'User Input' : 'AI Response'}
                         </span>
                         <span class="text-xs text-neutral-500">•</span>
                         <span class="font-mono text-xs text-neutral-500">
@@ -485,4 +486,4 @@ export default function AiChat() {
       </div>
     </div>
   );
-} 
+}
