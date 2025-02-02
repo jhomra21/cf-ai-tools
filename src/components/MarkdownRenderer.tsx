@@ -70,10 +70,6 @@ class CustomRenderer extends marked.Renderer {
   }
 
   list(token: Tokens.List): string {
-    // Debug log for list token
-    if (import.meta.env.DEV) {
-      console.log('List token:', token);
-    }
     const type = token.ordered ? 'ol' : 'ul';
     const className = token.ordered
       ? 'list-decimal list-inside mb-4 space-y-2'
@@ -81,11 +77,7 @@ class CustomRenderer extends marked.Renderer {
     
     // Process each list item
     const items = token.items.map(item => {
-      // Debug log for list item
-      if (import.meta.env.DEV) {
-        console.log('Processing list item:', item);
-      }
-      
+   
       // Split the content at line breaks
       const lines = item.text.split('\n');
       
@@ -156,10 +148,6 @@ class CustomRenderer extends marked.Renderer {
   }
 
   strong(token: Tokens.Strong): string {
-    // Debug log for strong tokens
-    if (import.meta.env.DEV) {
-      console.log('Strong token:', token);
-    }
     
     // Handle the token's raw text directly if tokens array is not available
     const content = token.tokens 
@@ -188,18 +176,7 @@ class CustomRenderer extends marked.Renderer {
   // Helper method to parse inline tokens
   private parseInline(tokens: Token[]): string {
     if (!tokens) return '';
-    
-    // Debug log for inline parsing
-    if (import.meta.env.DEV) {
-      console.log('Parsing inline tokens:', tokens);
-    }
-
     return tokens.map(token => {
-      // Debug log for each token
-      if (import.meta.env.DEV) {
-        console.log('Processing token:', token.type, token);
-      }
-
       switch (token.type) {
         case 'strong':
           return this.strong(token as Tokens.Strong);
@@ -243,19 +220,8 @@ const MarkdownRenderer: Component<MarkdownRendererProps> = (props) => {
     try {
       // Remove zero-width characters that might interfere with parsing
       const cleanContent = props.content.replace(/^[\u200B\u200C\u200D\u200E\u200F\uFEFF]/, '');
-      
-      // Debug: Log cleaned content
-      if (import.meta.env.DEV) {
-        console.log('Cleaned content:', cleanContent);
-      }
-
       // Parse markdown to HTML
       const html = marked.parse(cleanContent) as string;
-
-      // Debug: Log pre-sanitized HTML
-      if (import.meta.env.DEV) {
-        console.log('Pre-sanitized HTML:', html);
-      }
 
       // Sanitize the HTML
       const sanitized = DOMPurify.sanitize(html, {
@@ -264,11 +230,6 @@ const MarkdownRenderer: Component<MarkdownRendererProps> = (props) => {
         ALLOW_DATA_ATTR: true,
         ALLOW_ARIA_ATTR: true,
       });
-
-      // Debug: Log final sanitized HTML
-      if (import.meta.env.DEV) {
-        console.log('Sanitized HTML:', sanitized);
-      }
 
       return sanitized;
     } catch (error) {

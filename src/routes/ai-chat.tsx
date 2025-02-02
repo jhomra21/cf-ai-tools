@@ -1,108 +1,138 @@
 import { createSignal, createEffect, For, Show, onMount, onCleanup, batch } from 'solid-js';
 import { chatStore, type ChatMessage } from '../stores/chatStore';
-import { useLocation } from '@solidjs/router';
+import { useLocation, useIsRouting } from '@solidjs/router';
 import MarkdownRenderer from '../components/MarkdownRenderer';
+
+type ScrollState = 'at-bottom' | 'scrolled-up' | 'scrolling';
 
 export default function AiChat() {
   const [currentInput, setCurrentInput] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(false);
   const [currentAssistantMessage, setCurrentAssistantMessage] = createSignal('');
   const [error, setError] = createSignal<string | null>(null);
-  const [shouldFocus, setShouldFocus] = createSignal(true);
   const [showHeader, setShowHeader] = createSignal(true);
-  const [isMounted, setIsMounted] = createSignal(false);
-  const [shouldAutoScroll, setShouldAutoScroll] = createSignal(true);
-  const [isUserScrolling, setIsUserScrolling] = createSignal(false);
+  const [scrollState, setScrollState] = createSignal<ScrollState>('at-bottom');
+  const [isInitialMount, setIsInitialMount] = createSignal(true);
   const location = useLocation();
+  const isRouting = useIsRouting();
   let inputRef: HTMLTextAreaElement | undefined;
   let messagesContainerRef: HTMLDivElement | undefined;
   let partialResponse = '';
   let scrollTimeout: number | undefined;
   let lastUserInteraction = 0;
-  let userHasScrolledUp = false;
+  let isUpdating = false;
+  let scrollDebounceTimeout: number | undefined;
+  let setupTimeout: number | undefined;
+
+  // Derived state
+  const shouldAutoScroll = () => scrollState() === 'at-bottom';
+
+  // Check if we're near the bottom of the scroll container
+  const isNearBottom = () => {
+    if (!messagesContainerRef) return true;
+    const { scrollHeight, scrollTop, clientHeight } = messagesContainerRef;
+    return scrollHeight - scrollTop - clientHeight <= 50;
+  };
 
   // Scroll to bottom function
   const scrollToBottom = (smooth = true) => {
-    if (!messagesContainerRef || !shouldAutoScroll() || userHasScrolledUp) return;
-
-    requestAnimationFrame(() => {
-      const container = messagesContainerRef;
-      const maxScroll = container.scrollHeight - container.clientHeight;
-      
-      container.scrollTo({
-        top: maxScroll,
-        behavior: smooth ? 'smooth' : 'instant'
+    if (!messagesContainerRef || isUpdating) return;
+    
+    // Small delay to ensure DOM has updated
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        const container = messagesContainerRef;
+        if (!container) return;
+        
+        const maxScroll = container.scrollHeight - container.clientHeight;
+        container.scrollTo({
+          top: maxScroll,
+          behavior: smooth ? 'smooth' : 'instant'
+        });
       });
-    });
+    }, 50);
+  };
+
+  // Update scroll state with debounce
+  const updateScrollState = (newState: ScrollState) => {
+    if (scrollDebounceTimeout) {
+      window.clearTimeout(scrollDebounceTimeout);
+    }
+
+    scrollDebounceTimeout = window.setTimeout(() => {
+      if (!isUpdating) {
+        setScrollState(newState);
+      }
+    }, 100);
   };
 
   // Handle manual scrolling
   const handleScroll = (e: Event) => {
-    if (!messagesContainerRef || !e.target) return;
+    if (!messagesContainerRef || isUpdating) return;
     
-    // Clear any existing scroll timeout
+    // Clear any existing timeouts
     if (scrollTimeout) {
       window.clearTimeout(scrollTimeout);
     }
 
-    // Update last interaction time
+    isUpdating = true;
     lastUserInteraction = Date.now();
-    setIsUserScrolling(true);
-
-    const { scrollHeight, scrollTop, clientHeight } = messagesContainerRef;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     
-    // Update scroll state immediately
-    if (distanceFromBottom > 100) {
-      userHasScrolledUp = true;
-      setShouldAutoScroll(false);
-    } else {
-      userHasScrolledUp = false;
-      setShouldAutoScroll(true);
-    }
+    // Update scroll state
+    updateScrollState(isNearBottom() ? 'at-bottom' : 'scrolled-up');
 
-    // Set a timeout to end the scrolling state
+    // Set a timeout to reset updating flag
     scrollTimeout = window.setTimeout(() => {
-      setIsUserScrolling(false);
+      isUpdating = false;
     }, 150);
   };
 
   // Handle viewport changes
   const handleViewportChange = () => {
-    if (!shouldAutoScroll() || userHasScrolledUp || isUserScrolling()) return;
-    
-    requestAnimationFrame(() => {
-      if (messagesContainerRef) {
-        const maxScroll = messagesContainerRef.scrollHeight - messagesContainerRef.clientHeight;
-        messagesContainerRef.scrollTo({
-          top: maxScroll,
-          behavior: 'instant'
-        });
-      }
-    });
+    if (!messagesContainerRef || !shouldAutoScroll() || isUpdating) return;
+    scrollToBottom(false);
   };
 
-  // Effect for new messages and streaming
-  createEffect(() => {
-    const messages = chatStore.messages;
-    const streaming = currentAssistantMessage();
-
-    if (!isMounted() || isUserScrolling() || userHasScrolledUp) return;
-
-    // Only auto-scroll for new messages or streaming if we're supposed to
-    if (shouldAutoScroll() && (messages.length > 0 || streaming)) {
-      scrollToBottom(!streaming);
+  // Focus and scroll setup
+  const setupView = (immediate = false) => {
+    // Clear any existing setup timeout
+    if (setupTimeout) {
+      clearTimeout(setupTimeout);
     }
-  });
+
+    const delay = immediate ? 0 : 200; // Increased delay for navigation
+
+    // Wait for routing to complete and DOM to be ready
+    setupTimeout = window.setTimeout(() => {
+      // Use double RAF to ensure next render cycle
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          // Only proceed if we're not in the middle of a route transition
+          if (!isRouting()) {
+            // Scroll to bottom first
+            if (chatStore.messages.length > 0 && messagesContainerRef) {
+              scrollToBottom(false);
+            }
+            // Then focus input
+            if (inputRef) {
+              inputRef.focus();
+            }
+          }
+        });
+      });
+    }, delay);
+  };
 
   // Mount handler
   onMount(() => {
-    setIsMounted(true);
+    // Set initial states
+    batch(() => {
+      setScrollState('at-bottom');
+      setIsInitialMount(true);
+    });
     
-    if (chatStore.messages.length > 0) {
-      scrollToBottom(false);
-    }
-    focusInput();
+    // Initial setup with no delay
+    setupView(true);
 
     // Add event listeners
     messagesContainerRef?.addEventListener('scroll', handleScroll, { passive: true });
@@ -111,29 +141,46 @@ export default function AiChat() {
 
     // Cleanup
     onCleanup(() => {
-      messagesContainerRef?.removeEventListener('scroll', handleScroll);
-      window.visualViewport?.removeEventListener('resize', handleViewportChange);
-      window.visualViewport?.removeEventListener('scroll', handleViewportChange);
+      // Clear any pending timeouts
       if (scrollTimeout) {
         window.clearTimeout(scrollTimeout);
       }
+      if (scrollDebounceTimeout) {
+        window.clearTimeout(scrollDebounceTimeout);
+      }
+      if (setupTimeout) {
+        window.clearTimeout(setupTimeout);
+      }
+      
+      // Reset states
+      batch(() => {
+        setScrollState('at-bottom');
+        setIsInitialMount(false);
+      });
+      
+      // Remove event listeners
+      messagesContainerRef?.removeEventListener('scroll', handleScroll);
+      window.visualViewport?.removeEventListener('resize', handleViewportChange);
+      window.visualViewport?.removeEventListener('scroll', handleViewportChange);
+      
+      isUpdating = false;
     });
   });
 
-  // Focus handling
-  const focusInput = () => {
-    if (!shouldFocus()) return;
-    setTimeout(() => {
-      inputRef?.focus();
-      setShouldFocus(false);
-    }, 0);
-  };
-
-  // Focus after loading state changes
+  // Handle navigation and routing state changes
   createEffect(() => {
-    if (!isLoading()) {
-      setShouldFocus(true);
-      focusInput();
+    const path = location.pathname;
+    const routing = isRouting();
+    
+    // Skip initial mount since onMount handles it
+    if (isInitialMount()) {
+      setIsInitialMount(false);
+      return;
+    }
+
+    // If we're navigating to the chat route and routing is complete
+    if (path === '/ai-chat' && !routing) {
+      setupView();
     }
   });
 
@@ -199,7 +246,7 @@ export default function AiChat() {
     const parts = content.split('</think>');
     if (parts.length === 1) {
       // No thinking tag, render as normal response
-      return <MarkdownRenderer content={content} />;
+      return <div class="message-content"><MarkdownRenderer content={content} /></div>;
     }
 
     return (
@@ -209,31 +256,35 @@ export default function AiChat() {
           {parts[0]}
         </pre>
         {/* Response part */}
-        <MarkdownRenderer content={parts[1]} />
+        <div class="message-content">
+          <MarkdownRenderer content={parts[1]} />
+        </div>
       </div>
     );
   };
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    userHasScrolledUp = false;
-    setShouldAutoScroll(true);
-    setShowHeader(false); // Hide header on first message
+    
     const userMessage = currentInput();
     if (!userMessage.trim()) return;
 
-    // Reset states
-    setError(null);
-    setCurrentAssistantMessage('');
-    partialResponse = ''; // Reset partial response
+    batch(() => {
+      setScrollState('at-bottom');
+      setShowHeader(false);
+      setError(null);
+      setCurrentAssistantMessage('');
+      setCurrentInput('');
+      setIsLoading(true);
+    });
     
-    // Add user message to chat
+    partialResponse = '';
     chatStore.addMessage({ role: 'user', content: userMessage });
-    setCurrentInput('');
-    setIsLoading(true);
     
-    // Scroll to bottom when loading starts
-    scrollToBottom(true);
+    // Scroll after adding user message
+    if (shouldAutoScroll()) {
+      scrollToBottom(true);
+    }
 
     try {
       const response = await fetch(import.meta.env.DEV ? 'http://127.0.0.1:8787' : `${import.meta.env.VITE_API_URL}`, {
@@ -257,9 +308,7 @@ export default function AiChat() {
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
+          if (done) break;
 
           const chunk = decoder.decode(value);
           const text = parseStreamChunk(chunk);
@@ -268,21 +317,21 @@ export default function AiChat() {
             assistantMessage += text;
             setCurrentAssistantMessage(assistantMessage);
             
-            // Ensure scroll on first chunk
-            if (isFirstChunk) {
+            // Scroll on first chunk if near bottom
+            if (isFirstChunk && shouldAutoScroll()) {
               scrollToBottom(true);
               isFirstChunk = false;
             }
           }
         }
 
-        // Add completed assistant message to chat
         if (assistantMessage.trim()) {
           chatStore.addMessage({ role: 'assistant', content: assistantMessage });
-          // Final scroll after message is complete
-          scrollToBottom(true);
+          // Scroll after adding assistant message if near bottom
+          if (shouldAutoScroll()) {
+            scrollToBottom(true);
+          }
         }
-        setCurrentAssistantMessage('');
       }
     } catch (error) {
       console.error('Error in handleSubmit:', error);
@@ -291,8 +340,10 @@ export default function AiChat() {
         role: 'assistant', 
         content: '❌ Sorry, I encountered an error. Please try again.' 
       });
-      // Scroll to show error message
-      scrollToBottom(true);
+      // Scroll to show error if near bottom
+      if (shouldAutoScroll()) {
+        scrollToBottom(true);
+      }
     } finally {
       setIsLoading(false);
     }
